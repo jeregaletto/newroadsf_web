@@ -1,0 +1,23 @@
+{
+  "name": "newroad-backend",
+  "version": "1.0.0",
+  "private": true,
+  "description": "API REST de New Road Indumentaria (demo)",
+  "type": "module",
+  "main": "src/server.js",
+  "scripts": {
+    "dev": "node --watch src/server.js",
+    "start": "node src/server.js",
+    "db:init": "node scripts/init-db.js",
+    "admin:crear": "node scripts/crear-admin.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "cors": "^2.8.6",
+    "dotenv": "^18.0.10",
+    "express": "^5.3.0",
+    "mysql2": "^3.24.6"
+  }
+}
