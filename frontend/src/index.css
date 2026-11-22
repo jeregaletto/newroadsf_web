@@ -15,6 +15,7 @@
   --color-acid-deep: #b5e01a;
   --color-wa: #25d366;
 
+
   --animate-marquee: marquee 28s linear infinite;
   --animate-fade-in: fade-in 0.2s ease-out;
   --animate-slide-up: slide-up 0.28s cubic-bezier(0.2, 0.8, 0.2, 1);
@@ -42,6 +43,23 @@
     10%, 85% { transform: translate(-50%, 0); opacity: 1; }
     100% { transform: translate(-50%, 8px); opacity: 0; }
   }
+}
+
+/* Tokens de gráficos: "static" para que se emitan siempre (se usan como var() dentro de SVG) */
+@theme static {
+  /* Gráficos (validados con el validador de dataviz contra la superficie #121212, modo oscuro) */
+  --color-viz: #80a300;        /* serie única: verde de la marca dentro de la banda de luminosidad */
+  --color-cat-1: #3987e5;      /* categóricos (orden fijo) */
+  --color-cat-2: #d95926;
+  --color-cat-3: #199e70;
+  --color-st-critical: #d03b3b; /* estados reservados: siempre con ícono + texto */
+  --color-st-serious: #ec835a;
+  --color-st-warning: #fab219;
+  --color-st-good: #0ca30c;
+  --color-grid: #2c2c2a;
+  --color-axis: #383835;
+  --color-muted: #898781;
+  --color-ink-2: #121212;
 }
 
 @layer base {

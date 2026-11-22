@@ -7,6 +7,16 @@ const ars = new Intl.NumberFormat('es-AR', {
 /** 28900 -> "$ 28.900" */
 export const formatARS = (n) => ars.format(Number(n) || 0).replace(/ /g, ' ');
 
+const compacto = new Intl.NumberFormat('es-AR', { notation: 'compact', maximumFractionDigits: 1 });
+/** 1250000 -> "$1,3 M" · 200000 -> "$200 mil" (ejes y valores chicos de gráficos) */
+export const formatARSCompacto = (n) => `$${compacto.format(Number(n) || 0)}`.replace(/ /g, ' ');
+
+/** "2026-11-21" -> Date local (sin corrimiento de zona horaria) */
+export const fechaLocal = (iso) => {
+  const [y, m, d] = iso.split('-').map(Number);
+  return new Date(y, m - 1, d);
+};
+
 const fecha = new Intl.DateTimeFormat('es-AR', {
   day: '2-digit',
   month: '2-digit',

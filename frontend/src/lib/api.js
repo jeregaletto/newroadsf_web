@@ -50,6 +50,11 @@ export const api = {
   logout: () => request('/auth/logout', { method: 'POST' }),
   sesion: () => request('/auth/me'),
 
+  getMetricas: (dias) => request(`/metricas?dias=${dias}`),
+  adminIAEstado: () => request('/admin/ia/estado'),
+  adminChat: (mensajes) => request('/admin/ia/chat', { method: 'POST', body: { mensajes } }),
+  generarDescripcion: (data) => request('/admin/ia/descripcion', { method: 'POST', body: data }),
+
   chatEstado: () => request('/chat/estado'),
   chat: (mensajes) => request('/chat', { method: 'POST', body: { mensajes } }),
 };

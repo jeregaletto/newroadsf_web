@@ -6,6 +6,8 @@ import productosRouter from './routes/productos.js';
 import pedidosRouter from './routes/pedidos.js';
 import chatRouter from './routes/chat.js';
 import authRouter from './routes/auth.js';
+import metricasRouter from './routes/metricas.js';
+import adminIARouter from './routes/adminIA.js';
 
 dotenv.config({ quiet: true });
 
@@ -25,6 +27,8 @@ app.use('/api/productos', productosRouter);
 app.use('/api/pedidos', pedidosRouter);
 app.use('/api/chat', chatRouter);
 app.use('/api/auth', authRouter);
+app.use('/api/metricas', metricasRouter);
+app.use('/api/admin/ia', adminIARouter);
 
 app.use('/api', (_req, res) => res.status(404).json({ error: 'Ruta no encontrada' }));
 

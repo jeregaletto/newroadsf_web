@@ -144,10 +144,5 @@ INSERT INTO producto_talles (producto_id, talle, stock) VALUES
 (13,'U',20),
 (14,'U',8);
 
--- Un pedido de ejemplo para que el panel admin no arranque vacío
-INSERT INTO pedidos (id, cliente_nombre, localidad, tipo_entrega, medio_pago, total, estado) VALUES
-(1, 'Lucía Fernández', 'Rosario, Santa Fe', 'envio', 'transferencia', 93800, 'confirmado');
-
-INSERT INTO pedido_items (pedido_id, producto_id, nombre_producto, talle, cantidad, precio_unitario, subtotal) VALUES
-(1, 5, 'Buzo Hoodie Heavyweight Gris', 'M', 1, 64900, 64900),
-(1, 1, 'Remera Oversize Road Classic', 'L', 1, 28900, 28900);
+-- El historial de pedidos de la demo (90 días) lo genera scripts/seed-ventas.js
+-- al correr "npm run db:init".

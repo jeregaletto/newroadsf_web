@@ -1,10 +1,12 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   ArrowLeft, ChevronDown, CircleAlert, Eye, EyeOff, LoaderCircle, Package, Plus, Receipt, RefreshCw, Save, Search,
-  Store as StoreIcon, Truck, Wallet, Check, LogOut,
+  Store as StoreIcon, Truck, Check, LogOut, ChartColumn, Sparkles,
 } from 'lucide-react';
-import { Logo, WhatsAppIcon } from '../components/BrandIcons';
+import { Logo } from '../components/BrandIcons';
+import ChatAssistant from '../components/ChatAssistant';
+import MetricasPanel from '../components/admin/MetricasPanel';
 import AdminLogin from '../components/AdminLogin';
 import { api, EVENTO_SESION_VENCIDA } from '../lib/api';
 import { formatARS, formatFecha, imgUrl, onImgError } from '../lib/format';
@@ -319,12 +321,31 @@ const PRODUCTO_VACIO = {
   destacado: false,
 };
 
-function NuevoProducto({ onCreated, notify }) {
+function NuevoProducto({ onCreated, notify, iaDisponible }) {
   const [abierto, setAbierto] = useState(false);
   const [form, setForm] = useState(PRODUCTO_VACIO);
   const [stock, setStock] = useState({ S: 0, M: 0, L: 0, XL: 0, XXL: 0 });
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState('');
+  const [generando, setGenerando] = useState(false);
+
+  // Redacta la descripción con IA a partir del nombre, la categoría y lo que ya esté escrito como notas
+  const generarDescripcion = async () => {
+    if (!form.nombre.trim()) {
+      setError('Escribí primero el nombre del producto para generar la descripción');
+      return;
+    }
+    setError('');
+    setGenerando(true);
+    try {
+      const r = await api.generarDescripcion({ nombre: form.nombre, categoria: form.categoria, detalles: form.descripcion });
+      setForm((f) => ({ ...f, descripcion: r.descripcion }));
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setGenerando(false);
+    }
+  };
 
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.type === 'checkbox' ? e.target.checked : e.target.value }));
 
@@ -396,16 +417,33 @@ function NuevoProducto({ onCreated, notify }) {
             <span className="mb-1 block text-xs font-semibold text-zinc-400">URL de la foto *</span>
             <input required type="url" value={form.imagen_url} onChange={set('imagen_url')} placeholder="https://…" className={inputCls} />
           </label>
-          <label className="sm:col-span-2">
-            <span className="mb-1 block text-xs font-semibold text-zinc-400">Descripción</span>
+          <div className="sm:col-span-2">
+            <div className="mb-1 flex items-center justify-between gap-2">
+              <label htmlFor="np-descripcion" className="text-xs font-semibold text-zinc-400">
+                Descripción
+              </label>
+              {iaDisponible && (
+                <button
+                  type="button"
+                  onClick={generarDescripcion}
+                  disabled={generando}
+                  className="flex items-center gap-1.5 rounded-full border border-acid/40 px-2.5 py-1 text-xs font-bold text-acid transition hover:bg-acid/10 disabled:opacity-60"
+                  title="Usa el nombre, la categoría y lo que escribiste como notas"
+                >
+                  {generando ? <LoaderCircle className="size-3.5 animate-spin" /> : <Sparkles className="size-3.5" />}
+                  {generando ? 'Generando…' : 'Generar con IA'}
+                </button>
+              )}
+            </div>
             <textarea
-              rows={2}
+              id="np-descripcion"
+              rows={3}
               value={form.descripcion}
               onChange={set('descripcion')}
-              placeholder="Tela, calce, detalles…"
+              placeholder={iaDisponible ? 'Escribí notas (tela, calce…) y tocá "Generar con IA", o redactala vos' : 'Tela, calce, detalles…'}
               className={`${inputCls} h-auto py-2.5`}
             />
-          </label>
+          </div>
           <div className="sm:col-span-2">
             <span className="mb-1 block text-xs font-semibold text-zinc-400">Stock por talle</span>
             <div className="flex flex-wrap gap-2">
@@ -458,14 +496,14 @@ function NuevoProducto({ onCreated, notify }) {
   );
 }
 
-function ProductosPanel({ productos, setProductos, notify }) {
+function ProductosPanel({ productos, setProductos, notify, iaDisponible }) {
   const [q, setQ] = useState('');
   const lista = q ? productos.filter((p) => p.nombre.toLowerCase().includes(q.toLowerCase())) : productos;
   const reemplazar = (p) => setProductos((prev) => prev.map((x) => (x.id === p.id ? p : x)));
 
   return (
     <div className="space-y-3">
-      <NuevoProducto onCreated={(p) => setProductos((prev) => [p, ...prev])} notify={notify} />
+      <NuevoProducto onCreated={(p) => setProductos((prev) => [p, ...prev])} notify={notify} iaDisponible={iaDisponible} />
       <label className="relative block">
         <span className="sr-only">Buscar producto</span>
         <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-zinc-500" />
@@ -489,26 +527,25 @@ function ProductosPanel({ productos, setProductos, notify }) {
 // =====================================================================
 //  Página
 // =====================================================================
-function Stat({ icon: Icon, label, value, hint }) {
-  return (
-    <div className="rounded-2xl border border-line bg-ink-2 p-4">
-      <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-zinc-500">
-        <Icon className="size-4 text-acid" /> {label}
-      </div>
-      <p className="mt-2 font-display text-2xl text-white sm:text-3xl">{value}</p>
-      {hint && <p className="mt-0.5 text-xs text-zinc-500">{hint}</p>}
-    </div>
-  );
-}
+const TABS = [
+  { id: 'metricas', label: 'Métricas', icon: ChartColumn },
+  { id: 'pedidos', label: 'Pedidos', icon: Receipt },
+  { id: 'productos', label: 'Productos', icon: Package },
+];
+
+const BIENVENIDA_ADMIN =
+  'Hola 👋 Soy tu asistente de gestión. Preguntame por **ventas**, **lo más vendido**, **qué reponer** o **pedidos pendientes**. Trabajo con los datos en vivo y solo consulto: no modifico nada.';
 
 function Panel({ usuario, onLogout }) {
-  const [tab, setTab] = useState('pedidos');
+  const [tab, setTab] = useState('metricas');
   const [pedidos, setPedidos] = useState([]);
   const [productos, setProductos] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState('');
   const [aviso, setAviso] = useState(null);
   const [ultimaSync, setUltimaSync] = useState(null);
+  const [iaDisponible, setIaDisponible] = useState(false);
+  const [chatAbierto, setChatAbierto] = useState(false);
 
   const notify = useCallback((mensaje, tipo = 'ok') => {
     setAviso({ mensaje, tipo, id: Date.now() });
@@ -536,8 +573,8 @@ function Panel({ usuario, onLogout }) {
   }, []);
 
   useEffect(() => {
-    document.title = 'Panel · New Road';
     cargarTodo();
+    api.adminIAEstado().then((r) => setIaDisponible(Boolean(r?.disponible))).catch(() => setIaDisponible(false));
     // "Tiempo real": los pedidos nuevos aparecen solos
     const id = setInterval(() => cargarPedidos().catch(() => {}), POLL_MS);
     return () => clearInterval(id);
@@ -555,23 +592,28 @@ function Panel({ usuario, onLogout }) {
     }
   };
 
-  const stats = useMemo(() => {
-    const validos = pedidos.filter((p) => p.estado !== 'cancelado');
-    return {
-      ventas: validos.reduce((a, p) => a + p.total, 0),
-      pendientes: pedidos.filter((p) => p.estado === 'pendiente').length,
-      sinStock: productos.filter((p) => p.activo && p.talles.some((t) => t.stock === 0)).length,
-      total: validos.length,
-    };
-  }, [pedidos, productos]);
+  const pendientes = pedidos.filter((p) => p.estado === 'pendiente').length;
 
   return (
     <div className="min-h-dvh">
       <header className="sticky top-0 z-30 border-b border-line bg-ink/90 backdrop-blur">
-        <div className="mx-auto flex h-16 max-w-6xl items-center gap-3 px-4 sm:px-6">
+        <div className="mx-auto flex h-16 max-w-7xl items-center gap-3 px-4 sm:px-6">
           <Logo />
           <span className="rounded-md bg-acid px-2 py-0.5 text-[0.65rem] font-extrabold uppercase tracking-wider text-ink">Panel</span>
-          <Link to="/" className="ml-auto flex h-10 items-center gap-1.5 rounded-full px-3 text-sm font-semibold text-zinc-400 hover:bg-white/5 hover:text-white">
+          {iaDisponible && (
+            <button
+              type="button"
+              onClick={() => setChatAbierto(true)}
+              className="ml-auto flex h-10 items-center gap-1.5 rounded-full bg-acid px-3.5 text-sm font-extrabold text-ink transition hover:bg-acid-deep active:scale-95"
+            >
+              <Sparkles className="size-4" strokeWidth={2.5} /> <span className="hidden sm:inline">Asistente</span> IA
+            </button>
+          )}
+          <Link
+            to="/"
+            className={`flex h-10 items-center gap-1.5 rounded-full px-3 text-sm font-semibold text-zinc-400 hover:bg-white/5 hover:text-white ${iaDisponible ? '' : 'ml-auto'}`}
+            aria-label="Ver tienda"
+          >
             <ArrowLeft className="size-4" /> <span className="hidden sm:inline">Ver tienda</span>
           </Link>
           <button
@@ -586,55 +628,42 @@ function Panel({ usuario, onLogout }) {
         </div>
       </header>
 
-      <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
-        <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
-          <div>
-            <h1 className="font-display text-4xl text-white">Hola, New Road 👋</h1>
-            <p className="mt-1 flex items-center gap-2 text-sm text-zinc-500">
-              <span className="relative flex size-2">
-                <span className="absolute inline-flex size-full animate-ping rounded-full bg-acid opacity-60" />
-                <span className="relative inline-flex size-2 rounded-full bg-acid" />
-              </span>
-              En vivo · {ultimaSync ? `actualizado ${ultimaSync.toLocaleTimeString('es-AR')}` : 'conectando…'}
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={cargarTodo}
-            className="flex h-10 items-center gap-2 rounded-full border border-line px-4 text-sm font-semibold text-zinc-300 hover:text-white"
-          >
-            <RefreshCw className="size-4" /> Actualizar
-          </button>
+      <main className="mx-auto max-w-7xl px-4 pb-16 pt-6 sm:px-6 sm:pt-8">
+        <div className="mb-6">
+          <h1 className="font-display text-4xl text-white">Hola, New Road 👋</h1>
+          <p className="mt-1 flex flex-wrap items-center gap-x-2 text-sm text-zinc-500">
+            <span className="relative flex size-2">
+              <span className="absolute inline-flex size-full animate-ping rounded-full bg-acid opacity-60" />
+              <span className="relative inline-flex size-2 rounded-full bg-acid" />
+            </span>
+            En vivo · {ultimaSync ? `actualizado ${ultimaSync.toLocaleTimeString('es-AR')}` : 'conectando…'}
+            {pendientes > 0 && <span className="text-zinc-300">· {pendientes} pedidos pendientes</span>}
+          </p>
         </div>
 
-        <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
-          <Stat icon={Wallet} label="Ventas" value={formatARS(stats.ventas)} hint="Sin contar cancelados" />
-          <Stat icon={Receipt} label="Pedidos" value={stats.total} />
-          <Stat icon={WhatsAppIcon} label="Pendientes" value={stats.pendientes} hint="A confirmar por WhatsApp" />
-          <Stat icon={Package} label="Con talles agotados" value={stats.sinStock} hint="Productos para reponer" />
-        </div>
-
-        <div className="mb-5 grid grid-cols-2 gap-1 rounded-2xl border border-line bg-ink-2 p-1 sm:inline-grid sm:w-auto" role="tablist">
-          {[
-            { id: 'pedidos', label: `Pedidos (${pedidos.length})`, icon: Receipt },
-            { id: 'productos', label: `Productos (${productos.length})`, icon: Package },
-          ].map((t) => (
+        <div className="mb-6 grid grid-cols-3 gap-1 rounded-2xl border border-line bg-ink-2 p-1 sm:inline-grid sm:w-auto" role="tablist">
+          {TABS.map((t) => (
             <button
               key={t.id}
               type="button"
               role="tab"
               aria-selected={tab === t.id}
               onClick={() => setTab(t.id)}
-              className={`flex h-11 items-center justify-center gap-2 rounded-xl px-5 text-sm font-bold transition ${
+              className={`flex h-11 items-center justify-center gap-2 rounded-xl px-3 text-sm font-bold transition sm:px-5 ${
                 tab === t.id ? 'bg-acid text-ink' : 'text-zinc-400 hover:text-white'
               }`}
             >
-              <t.icon className="size-4" /> {t.label}
+              <t.icon className="hidden size-4 sm:block" /> {t.label}
+              {t.id === 'pedidos' && pendientes > 0 && (
+                <span className={`rounded-full px-1.5 text-[0.65rem] ${tab === t.id ? 'bg-ink text-acid' : 'bg-acid text-ink'}`}>{pendientes}</span>
+              )}
             </button>
           ))}
         </div>
 
-        {cargando ? (
+        {tab === 'metricas' ? (
+          <MetricasPanel />
+        ) : cargando ? (
           <div className="flex justify-center py-20">
             <LoaderCircle className="size-8 animate-spin text-acid" />
           </div>
@@ -646,9 +675,25 @@ function Panel({ usuario, onLogout }) {
         ) : tab === 'pedidos' ? (
           <PedidosPanel pedidos={pedidos} onEstado={cambiarEstado} />
         ) : (
-          <ProductosPanel productos={productos} setProductos={setProductos} notify={notify} />
+          <ProductosPanel productos={productos} setProductos={setProductos} notify={notify} iaDisponible={iaDisponible} />
         )}
       </main>
+
+      {iaDisponible && (
+        <>
+          <ChatAssistant
+            open={chatAbierto}
+            onClose={() => setChatAbierto(false)}
+            titulo="Asistente de gestión"
+            textoBienvenida={BIENVENIDA_ADMIN}
+            storageKey="newroad-admin-chat-v1"
+            enviarMensajes={api.adminChat}
+            placeholder="Ej: ¿qué tengo que reponer?"
+            pie="IA con datos en vivo de ventas y stock · solo lectura"
+            mostrarWhatsAppEnError={false}
+          />
+        </>
+      )}
 
       {aviso && (
         <div

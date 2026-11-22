@@ -55,11 +55,25 @@ real y un **panel de administración** con login.
 
 ### Panel admin (`/admin`)
 - **Login** con usuario y contraseña.
+- **Métricas** con filtro de período (7 / 30 / 90 días), todas con tooltip y vista de tabla:
+  - KPIs de ventas, pedidos, ticket promedio y prendas vendidas, con **variación contra el período anterior**.
+  - **Ventas por día** (línea con cursor que encuentra el día y navegación con teclado).
+  - **Más vendidos**, **ventas por categoría**, **talles más vendidos** y **cómo compran** (medio de pago y entrega).
+- **Control de stock**:
+  - Prendas en stock, valor del inventario a precio de venta y talles agotados.
+  - **Qué reponer**: alertas por producto y talle (*Agotado / Crítico / Bajo*) según el ritmo de venta de
+    los últimos 30 días, con **días de cobertura** y **cantidad sugerida a reponer**.
+  - Stock por categoría y productos **sin ventas** en el período (mercadería inmovilizada).
+- **Asistente de gestión con IA** (solo lectura): "¿cómo vienen las ventas este mes?", "¿qué tengo que
+  reponer?", "¿qué pedidos tengo pendientes?". Responde con los datos en vivo y nunca modifica nada.
 - **Pedidos** con actualización automática cada 8 segundos: filtro por estado, detalle de ítems y cambio de
   estado (*pendiente → confirmado → enviado → entregado*). Si un pedido se **cancela, el stock se repone**.
 - **Productos**: edición en línea de precio y stock por talle, ocultar/mostrar en la tienda y alta de
-  productos nuevos con vista previa de la foto.
-- **Métricas**: ventas, cantidad de pedidos, pendientes y productos con talles agotados.
+  productos nuevos con vista previa de la foto y **descripción generada con IA**.
+
+<p align="center">
+  <img src="docs/capturas/panel-metricas.png" alt="Panel de métricas: KPIs, ventas por día, más vendidos, categorías, talles, medios de pago y control de stock" width="100%">
+</p>
 
 ---
 
@@ -100,7 +114,7 @@ cd ..
 cp backend/.env.example backend/.env
 #    -> completar DB_PASSWORD (y GEMINI_API_KEY si querés el asistente)
 
-# 3. Base de datos + datos de ejemplo (14 productos y un pedido)
+# 3. Base de datos + datos de ejemplo (14 productos y ~300 pedidos de los últimos 90 días)
 cd backend
 npm run db:init
 
@@ -140,7 +154,7 @@ En desarrollo, Vite redirige `/api` al backend, así que no hace falta configura
 | --- | --- | --- |
 | `backend` | `npm run dev` | API con recarga automática |
 | `backend` | `npm start` | API sin recarga (producción) |
-| `backend` | `npm run db:init` | Recrea la base y carga el seed |
+| `backend` | `npm run db:init` | Recrea la base, carga el catálogo y genera el historial de ventas de demo |
 | `backend` | `npm run admin:crear -- <usuario> [contraseña]` | Crea o cambia el usuario del panel (sin contraseña, genera una segura) |
 | `frontend` | `npm run dev` | Servidor de desarrollo |
 | `frontend` | `npm run build` | Build de producción en `frontend/dist` |
@@ -152,22 +166,26 @@ En desarrollo, Vite redirige `/api` al backend, así que no hace falta configura
 ```
 newroadsf-demo/
 ├── backend/
-│   ├── schema.sql              # Base, tablas y datos de ejemplo
+│   ├── schema.sql              # Base, tablas y catálogo inicial
 │   ├── .env.example            # Variables de entorno (copiar a .env)
 │   ├── scripts/
-│   │   ├── init-db.js          # Ejecuta schema.sql
+│   │   ├── init-db.js          # Ejecuta schema.sql + genera el historial de ventas
+│   │   ├── seed-ventas.js      # Historial de 90 días (determinístico) para las métricas
 │   │   └── crear-admin.js      # Usuario/contraseña del panel
 │   └── src/
 │       ├── server.js           # App Express y manejo de errores
 │       ├── db.js               # Pool MySQL + helper de transacciones
 │       ├── auth.js             # Hash scrypt, sesión firmada, middleware
-│       ├── routes/             # productos, pedidos, auth, chat
-│       └── chat/               # Asistente: prompt, herramientas MySQL, cliente Gemini
+│       ├── metricas.js         # Ventas, rankings, inventario y alertas de reposición
+│       ├── routes/             # productos, pedidos, auth, chat, metricas, adminIA
+│       └── chat/               # Cliente Gemini + prompts y herramientas (tienda y admin)
 ├── frontend/
 │   ├── public/favicon.png
 │   └── src/
 │       ├── pages/              # Store (tienda) y Admin (panel + login)
 │       ├── components/         # Tarjetas, modales, carrito, chat, etc.
+│       │   ├── admin/          # Panel de métricas y control de stock
+│       │   └── charts/         # Gráficos propios en SVG/HTML (sin librerías)
 │       ├── context/            # Estado del carrito
 │       └── lib/                # API, formato ARS, WhatsApp, datos del local, guía de talles
 └── docs/capturas/
@@ -212,8 +230,12 @@ Base: `http://localhost:3001/api` · 🔒 = requiere sesión de admin
 | `POST` | `/auth/login` | Inicia sesión (`{ usuario, password }`) |
 | `POST` | `/auth/logout` | Cierra la sesión |
 | `GET` | `/auth/me` | Devuelve la sesión actual |
-| `GET` | `/chat/estado` | Indica si el asistente está disponible |
-| `POST` | `/chat` | Conversa con el asistente (`{ mensajes: [{ rol, texto }] }`) |
+| `GET` | `/chat/estado` | Indica si el asistente de la tienda está disponible |
+| `POST` | `/chat` | Conversa con el asistente de la tienda (`{ mensajes: [{ rol, texto }] }`) |
+| `GET` | `/metricas?dias=30` 🔒 | Tablero completo: ventas, rankings, distribución, inventario y alertas |
+| `GET` | `/admin/ia/estado` 🔒 | Indica si la IA del panel está disponible |
+| `POST` | `/admin/ia/chat` 🔒 | Conversa con el asistente de gestión (solo lectura) |
+| `POST` | `/admin/ia/descripcion` 🔒 | Genera la descripción de un producto (`{ nombre, categoria, detalles? }`) |
 
 Los errores devuelven JSON con un mensaje legible: `{ "error": "Sin stock suficiente — …" }`.
 
@@ -246,6 +268,26 @@ GEMINI_MODELS=gemini-3.5-flash-lite,gemini-3.5-flash,gemini-3.1-flash-lite
 **Costo de referencia** (medido con `gemini-3.5-flash-lite`): unos US$ 0,0015 por consulta que usa el
 catálogo. Mil conversaciones de 5 mensajes por mes rondan los US$ 7–10.
 
+### Asistente de gestión (panel admin)
+
+<p align="center">
+  <img src="docs/capturas/asistente-admin.png" alt="Asistente de gestión recomendando qué reponer con datos de ventas y stock" width="320">
+</p>
+
+Mismo cliente de Gemini, con su propio prompt y **herramientas de solo lectura** sobre ventas y stock
+([`backend/src/chat/adminTools.js`](backend/src/chat/adminTools.js)): resumen de ventas con comparación,
+ventas por día, más vendidos, categorías y talles, medios de pago, estado del stock con alertas de
+reposición, y búsqueda de pedidos. Usa **el mismo módulo de métricas que los gráficos**
+([`backend/src/metricas.js`](backend/src/metricas.js)), así los números del chat y del tablero siempre coinciden.
+
+- No puede cambiar precios, stock ni pedidos: si se lo piden, indica dónde hacerlo en el panel.
+- Al recomendar reposición, justifica con unidades vendidas, stock actual y días de cobertura.
+- Tiene un margen de espera mayor que el chat de la tienda (45 s) para tolerar picos de demanda de la API.
+- Uso estimado: 20 consultas por día ≈ US$ 1–2 por mes.
+
+En **Productos → Agregar producto nuevo**, el botón **"Generar con IA"** redacta la descripción a partir
+del nombre, la categoría y las notas que haya escritas.
+
 ---
 
 ## Seguridad del panel admin
@@ -275,7 +317,10 @@ npm run admin:crear -- <usuario> <contraseña>   # luego reiniciar el backend
 | Medidas de la guía de talles | [`frontend/src/lib/sizeGuide.js`](frontend/src/lib/sizeGuide.js) |
 | Colores y tipografías | [`frontend/src/index.css`](frontend/src/index.css) (bloque `@theme`) |
 | Mensaje de WhatsApp del pedido | [`frontend/src/lib/whatsapp.js`](frontend/src/lib/whatsapp.js) |
-| Personalidad y reglas del asistente | [`backend/src/chat/prompt.js`](backend/src/chat/prompt.js) |
+| Personalidad y reglas del asistente de la tienda | [`backend/src/chat/prompt.js`](backend/src/chat/prompt.js) |
+| Reglas del asistente de gestión y estilo de las descripciones | [`backend/src/chat/adminPrompt.js`](backend/src/chat/adminPrompt.js) |
+| Umbrales de las alertas de stock (crítico / bajo / días a cubrir) | [`backend/src/metricas.js`](backend/src/metricas.js) |
+| Colores de los gráficos (validados para daltonismo) | [`frontend/src/index.css`](frontend/src/index.css) (bloque `@theme static`) |
 | Catálogo inicial | [`backend/schema.sql`](backend/schema.sql) o desde el panel admin |
 
 Los cambios en `constants.js` y `sizeGuide.js` impactan **tanto en la web como en el asistente**.
@@ -293,7 +338,10 @@ Checklist antes de publicar:
 - [ ] Si el frontend y la API están en dominios distintos: definir `VITE_API_URL` en el build y
       configurar CORS con `credentials` para el dominio del frontend.
 - [ ] Reemplazar las fotos de Unsplash por fotos propias del local.
-- [ ] Cargar el catálogo y los precios reales.
+- [ ] Cargar el catálogo y los precios reales, **sin** el historial de ventas de demo: correr solo
+      `schema.sql` (por ejemplo `mysql -u root -p < backend/schema.sql`) en lugar de `npm run db:init`.
+- [ ] Configurar la zona horaria de MySQL en Argentina (`America/Argentina/Cordoba`): las métricas agrupan
+      las ventas por día según la hora del servidor.
 
 ---
 

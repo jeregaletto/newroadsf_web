@@ -6,19 +6,15 @@ import { api } from '../lib/api';
 import { formatARS, imgUrl, onImgError } from '../lib/format';
 import { waLink } from '../lib/whatsapp';
 
-const STORAGE_KEY = 'newroad-chat-v1';
-const BIENVENIDA = {
-  rol: 'model',
-  texto: '¡Hola! Soy el asistente de **New Road**. Preguntame por prendas, talles, stock, envíos o el horario del local.',
-  local: true,
-};
+const BIENVENIDA_TIENDA =
+  '¡Hola! Soy el asistente de **New Road**. Preguntame por prendas, talles, stock, envíos o el horario del local.';
 
-function cargarHistorial() {
+function cargarHistorial(storageKey, bienvenida) {
   try {
-    const data = JSON.parse(sessionStorage.getItem(STORAGE_KEY));
-    return Array.isArray(data) && data.length ? data : [BIENVENIDA];
+    const data = JSON.parse(sessionStorage.getItem(storageKey));
+    return Array.isArray(data) && data.length ? data : [bienvenida];
   } catch {
-    return [BIENVENIDA];
+    return [bienvenida];
   }
 }
 
@@ -98,16 +94,34 @@ function ProductosMencionados({ ids, texto, productos, onOpenProduct }) {
   );
 }
 
-export default function ChatAssistant({ open, onClose, productos, onOpenProduct }) {
-  const [mensajes, setMensajes] = useState(cargarHistorial);
+/**
+ * Chat con IA reutilizable (tienda y panel admin).
+ * - enviarMensajes(historial) => { respuesta, productoIds? }
+ * - productos + onOpenProduct: opcionales; si están, los productos nombrados se muestran como tarjetas.
+ */
+export default function ChatAssistant({
+  open,
+  onClose,
+  productos = [],
+  onOpenProduct,
+  titulo = 'Asistente New Road',
+  textoBienvenida = BIENVENIDA_TIENDA,
+  storageKey = 'newroad-chat-v1',
+  enviarMensajes = api.chat,
+  pie = 'Asistente con IA · precios y stock consultados en tiempo real',
+  placeholder = 'Escribí tu consulta…',
+  mostrarWhatsAppEnError = true,
+}) {
+  const bienvenida = { rol: 'model', texto: textoBienvenida, local: true };
+  const [mensajes, setMensajes] = useState(() => cargarHistorial(storageKey, bienvenida));
   const [texto, setTexto] = useState('');
   const [pensando, setPensando] = useState(false);
   const listaRef = useRef(null);
   const inputRef = useRef(null);
 
   useEffect(() => {
-    sessionStorage.setItem(STORAGE_KEY, JSON.stringify(mensajes));
-  }, [mensajes]);
+    sessionStorage.setItem(storageKey, JSON.stringify(mensajes));
+  }, [mensajes, storageKey]);
 
   // Auto-scroll al último mensaje
   useEffect(() => {
@@ -127,7 +141,7 @@ export default function ChatAssistant({ open, onClose, productos, onOpenProduct 
     setPensando(true);
     try {
       const historial = nuevos.filter((m) => !m.local && !m.error).map(({ rol, texto: t }) => ({ rol, texto: t }));
-      const r = await api.chat(historial);
+      const r = await enviarMensajes(historial);
       setMensajes((prev) => [...prev, { rol: 'model', texto: r.respuesta, productoIds: r.productoIds }]);
     } catch (err) {
       setMensajes((prev) => [
@@ -139,7 +153,7 @@ export default function ChatAssistant({ open, onClose, productos, onOpenProduct 
     }
   };
 
-  const reiniciar = () => setMensajes([BIENVENIDA]);
+  const reiniciar = () => setMensajes([bienvenida]);
   const soloBienvenida = mensajes.length === 1;
 
   return (
@@ -147,7 +161,7 @@ export default function ChatAssistant({ open, onClose, productos, onOpenProduct 
       open={open}
       onClose={onClose}
       variant="drawer"
-      title="Asistente New Road"
+      title={titulo}
       headerExtra={
         !soloBienvenida && (
           <button
@@ -182,7 +196,7 @@ export default function ChatAssistant({ open, onClose, productos, onOpenProduct 
                   }`}
                 >
                   <Texto texto={m.texto} />
-                  {m.error && (
+                  {m.error && mostrarWhatsAppEnError && (
                     <a
                       href={waLink('¡Hola New Road! Quería hacer una consulta.')}
                       target="_blank"
@@ -193,7 +207,7 @@ export default function ChatAssistant({ open, onClose, productos, onOpenProduct 
                     </a>
                   )}
                 </div>
-                {m.productoIds && (
+                {m.productoIds && onOpenProduct && (
                   <ProductosMencionados ids={m.productoIds} texto={m.texto} productos={productos} onOpenProduct={onOpenProduct} />
                 )}
               </div>
@@ -237,7 +251,7 @@ export default function ChatAssistant({ open, onClose, productos, onOpenProduct 
                   enviar(texto);
                 }
               }}
-              placeholder="Escribí tu consulta…"
+              placeholder={placeholder}
               enterKeyHint="send"
               className="block max-h-32 min-h-12 w-full resize-none rounded-2xl border border-line bg-ink-2 px-4 py-3 text-base text-white placeholder:text-zinc-500 [field-sizing:content] focus:border-acid focus:outline-none"
             />
@@ -252,7 +266,7 @@ export default function ChatAssistant({ open, onClose, productos, onOpenProduct 
           </button>
         </div>
         <p className="mt-2 text-center text-[0.65rem] text-zinc-600">
-          Asistente con IA · precios y stock consultados en tiempo real
+          {pie}
         </p>
       </form>
     </Modal>

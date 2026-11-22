@@ -1,6 +1,10 @@
 import { Router } from 'express';
 import { conversar, chatDisponible } from '../chat/gemini.js';
+import { systemPrompt } from '../chat/prompt.js';
+import { declaraciones, ejecutarHerramienta } from '../chat/tools.js';
 import { HttpError } from '../constants.js';
+
+const CONFIG_TIENDA = { systemPrompt, declaraciones, ejecutar: ejecutarHerramienta };
 
 const router = Router();
 
@@ -49,7 +53,7 @@ router.post('/', async (req, res) => {
   limitar(req.ip);
 
   try {
-    res.json(await conversar(historial));
+    res.json(await conversar(historial, CONFIG_TIENDA));
   } catch {
     // Los detalles ya quedaron en el log del servidor
     res.status(503).json({ respuesta: MENSAJE_RESPALDO, productoIds: [], modelo: 'respaldo' });
