@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { memo, useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   ArrowLeft, ChevronDown, CircleAlert, Eye, EyeOff, LoaderCircle, Package, Plus, Receipt, RefreshCw, Save, Search,
@@ -27,7 +27,8 @@ const tallesDeCategoria = (categoria) => (categoria === 'Accesorios' ? ['U'] : [
 // =====================================================================
 //  Pedidos
 // =====================================================================
-function PedidoCard({ pedido, onEstado }) {
+// memo: con el polling de cada 8 s, solo se re-renderizan las tarjetas cuyo pedido cambió
+const PedidoCard = memo(function PedidoCard({ pedido, onEstado }) {
   const [abierto, setAbierto] = useState(false);
   const [guardando, setGuardando] = useState(false);
   const unidades = pedido.items.reduce((a, i) => a + i.cantidad, 0);
@@ -133,7 +134,7 @@ function PedidoCard({ pedido, onEstado }) {
       )}
     </li>
   );
-}
+});
 
 function PedidosPanel({ pedidos, onEstado }) {
   const [filtro, setFiltro] = useState('');
@@ -179,7 +180,7 @@ function stockMap(producto) {
   return base;
 }
 
-function ProductoRow({ producto, onSaved, notify }) {
+const ProductoRow = memo(function ProductoRow({ producto, onSaved, notify }) {
   const [precio, setPrecio] = useState(String(producto.precio));
   const [stock, setStock] = useState(() => stockMap(producto));
   const [guardando, setGuardando] = useState(false);
@@ -310,7 +311,7 @@ function ProductoRow({ producto, onSaved, notify }) {
       </div>
     </li>
   );
-}
+});
 
 const PRODUCTO_VACIO = {
   nombre: '',
@@ -499,11 +500,13 @@ function NuevoProducto({ onCreated, notify, iaDisponible }) {
 function ProductosPanel({ productos, setProductos, notify, iaDisponible }) {
   const [q, setQ] = useState('');
   const lista = q ? productos.filter((p) => p.nombre.toLowerCase().includes(q.toLowerCase())) : productos;
-  const reemplazar = (p) => setProductos((prev) => prev.map((x) => (x.id === p.id ? p : x)));
+  // Callbacks estables: así ProductoRow (memo) no se re-renderiza al tipear en el buscador
+  const reemplazar = useCallback((p) => setProductos((prev) => prev.map((x) => (x.id === p.id ? p : x))), [setProductos]);
+  const agregar = useCallback((p) => setProductos((prev) => [p, ...prev]), [setProductos]);
 
   return (
     <div className="space-y-3">
-      <NuevoProducto onCreated={(p) => setProductos((prev) => [p, ...prev])} notify={notify} iaDisponible={iaDisponible} />
+      <NuevoProducto onCreated={agregar} notify={notify} iaDisponible={iaDisponible} />
       <label className="relative block">
         <span className="sr-only">Buscar producto</span>
         <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-zinc-500" />
@@ -522,6 +525,17 @@ function ProductosPanel({ productos, setProductos, notify, iaDisponible }) {
       </ul>
     </div>
   );
+}
+
+/** Si un registro no cambió desde el último poll, reutiliza el objeto anterior (así memo() lo saltea). */
+function reusarIguales(prev, nuevos) {
+  const viejos = new Map(prev.map((p) => [p.id, p]));
+  const resultado = nuevos.map((n) => {
+    const v = viejos.get(n.id);
+    return v && JSON.stringify(v) === JSON.stringify(n) ? v : n;
+  });
+  const igual = resultado.length === prev.length && resultado.every((r, i) => r === prev[i]);
+  return igual ? prev : resultado;
 }
 
 // =====================================================================
@@ -546,6 +560,8 @@ function Panel({ usuario, onLogout }) {
   const [ultimaSync, setUltimaSync] = useState(null);
   const [iaDisponible, setIaDisponible] = useState(false);
   const [chatAbierto, setChatAbierto] = useState(false);
+  // Métricas se monta la primera vez que se abre y después queda viva (no vuelve a pedir todo al cambiar de tab)
+  const [metricasVisitadas, setMetricasVisitadas] = useState(false);
 
   const notify = useCallback((mensaje, tipo = 'ok') => {
     setAviso({ mensaje, tipo, id: Date.now() });
@@ -554,7 +570,7 @@ function Panel({ usuario, onLogout }) {
 
   const cargarPedidos = useCallback(async () => {
     const data = await api.getPedidos();
-    setPedidos(data);
+    setPedidos((prev) => reusarIguales(prev, data));
     setUltimaSync(new Date());
   }, []);
 
@@ -580,16 +596,24 @@ function Panel({ usuario, onLogout }) {
     return () => clearInterval(id);
   }, [cargarTodo, cargarPedidos]);
 
-  const cambiarEstado = async (id, estado) => {
-    try {
-      const actualizado = await api.actualizarEstadoPedido(id, estado);
-      setPedidos((prev) => prev.map((p) => (p.id === id ? actualizado : p)));
-      // Si se canceló, el stock cambió: refrescamos productos
-      if (estado === 'cancelado') setProductos(await api.getProductos({ todos: '1' }));
-      notify(`Pedido #${id} → ${estado}`);
-    } catch (err) {
-      notify(err.message, 'error');
-    }
+  const cambiarEstado = useCallback(
+    async (id, estado) => {
+      try {
+        const actualizado = await api.actualizarEstadoPedido(id, estado);
+        setPedidos((prev) => prev.map((p) => (p.id === id ? actualizado : p)));
+        // Si se canceló, el stock cambió: refrescamos productos
+        if (estado === 'cancelado') setProductos(await api.getProductos({ todos: '1' }));
+        notify(`Pedido #${id} → ${estado}`);
+      } catch (err) {
+        notify(err.message, 'error');
+      }
+    },
+    [notify],
+  );
+
+  const elegirTab = (id) => {
+    if (id === 'metricas') setMetricasVisitadas(true);
+    setTab(id);
   };
 
   const pendientes = pedidos.filter((p) => p.estado === 'pendiente').length;
@@ -648,7 +672,7 @@ function Panel({ usuario, onLogout }) {
               type="button"
               role="tab"
               aria-selected={tab === t.id}
-              onClick={() => setTab(t.id)}
+              onClick={() => elegirTab(t.id)}
               className={`flex h-11 items-center justify-center gap-2 rounded-xl px-3 text-sm font-bold transition sm:px-5 ${
                 tab === t.id ? 'bg-acid text-ink' : 'text-zinc-400 hover:text-white'
               }`}
@@ -661,22 +685,27 @@ function Panel({ usuario, onLogout }) {
           ))}
         </div>
 
-        {tab === 'metricas' ? (
-          <MetricasPanel />
-        ) : cargando ? (
-          <div className="flex justify-center py-20">
-            <LoaderCircle className="size-8 animate-spin text-acid" />
+        {/* Métricas queda montada (oculta) al salir de la tab: al volver se muestra al instante y se refresca de fondo */}
+        {metricasVisitadas && (
+          <div hidden={tab !== 'metricas'}>
+            <MetricasPanel activa={tab === 'metricas'} />
           </div>
-        ) : error ? (
-          <div className="rounded-2xl border border-red-500/40 bg-red-500/10 p-6 text-center text-red-300">
-            <p>{error}</p>
-            <p className="mt-1 text-xs text-red-300/70">¿Está corriendo el backend en el puerto 3001?</p>
-          </div>
-        ) : tab === 'pedidos' ? (
-          <PedidosPanel pedidos={pedidos} onEstado={cambiarEstado} />
-        ) : (
-          <ProductosPanel productos={productos} setProductos={setProductos} notify={notify} iaDisponible={iaDisponible} />
         )}
+        {tab !== 'metricas' &&
+          (cargando ? (
+            <div className="flex justify-center py-20">
+              <LoaderCircle className="size-8 animate-spin text-acid" />
+            </div>
+          ) : error ? (
+            <div className="rounded-2xl border border-red-500/40 bg-red-500/10 p-6 text-center text-red-300">
+              <p>{error}</p>
+              <p className="mt-1 text-xs text-red-300/70">¿Está corriendo el backend en el puerto 3001?</p>
+            </div>
+          ) : tab === 'pedidos' ? (
+            <PedidosPanel pedidos={pedidos} onEstado={cambiarEstado} />
+          ) : (
+            <ProductosPanel productos={productos} setProductos={setProductos} notify={notify} iaDisponible={iaDisponible} />
+          ))}
       </main>
 
       {iaDisponible && (

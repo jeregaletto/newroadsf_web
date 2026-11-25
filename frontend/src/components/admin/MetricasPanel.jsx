@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { memo, useCallback, useEffect, useState } from 'react';
 import {
   Boxes, CircleAlert, CircleCheck, CircleX, Hash, LoaderCircle, PackageX, Receipt, RefreshCw, Shirt, TrendingDown,
   TriangleAlert, Wallet,
@@ -100,7 +100,8 @@ function AlertasStock({ alertas, diasVelocidad }) {
   );
 }
 
-export default function MetricasPanel() {
+// `activa`: si la tab está visible. Al volver a verla se refresca (se muestra lo anterior mientras tanto).
+function MetricasPanel({ activa = true }) {
   const [dias, setDias] = useState(30);
   const [datos, setDatos] = useState(null);
   const [cargando, setCargando] = useState(true);
@@ -119,8 +120,8 @@ export default function MetricasPanel() {
   }, []);
 
   useEffect(() => {
-    cargar(dias);
-  }, [dias, cargar]);
+    if (activa) cargar(dias);
+  }, [dias, activa, cargar]);
 
   if (!datos) {
     return error ? (
@@ -374,3 +375,6 @@ export default function MetricasPanel() {
     </div>
   );
 }
+
+// memo: el polling de pedidos re-renderiza el panel cada 8 s; los gráficos no tienen por qué repintarse
+export default memo(MetricasPanel);
