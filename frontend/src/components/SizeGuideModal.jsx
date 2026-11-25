@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Ruler, Sparkles } from 'lucide-react';
-import Modal from './Modal';
+import AnimatedModal from './AnimatedModal';
 import { WhatsAppIcon } from './BrandIcons';
 import { SIZE_GUIDE, sugerirTalle } from '../lib/sizeGuide';
 import { waLink } from '../lib/whatsapp';
@@ -74,7 +74,8 @@ function Guia({ inicial }) {
 
       {/* Tabla */}
       <div>
-        <div className="overflow-x-auto rounded-2xl border border-line">
+        {/* Solo horizontal: la rueda vertical sobre la tabla tiene que seguir scrolleando el modal */}
+        <div className="overflow-x-auto rounded-2xl border border-line" data-lenis-prevent-horizontal>
           <table className="w-full min-w-[22rem] text-sm">
             <caption className="sr-only">Medidas de {guia.titulo} en centímetros</caption>
             <thead className="bg-ink-3 text-xs uppercase tracking-wider text-zinc-500">
@@ -130,9 +131,19 @@ function Guia({ inicial }) {
 }
 
 export default function SizeGuideModal({ open, tipo, onClose }) {
+  // Cuenta las aperturas: la calculadora arranca vacía cada vez que se abre (como antes),
+  // pero el contenido no se desmonta durante la animación de salida
+  const [abierto, setAbierto] = useState(open);
+  const [apertura, setApertura] = useState(0);
+  if (open !== abierto) {
+    setAbierto(open);
+    if (open) setApertura((n) => n + 1);
+  }
+
   return (
-    <Modal open={open} onClose={onClose} title="Guía de talles" size="md">
-      {open && <Guia key={tipo ?? 'remeras'} inicial={tipo} />}
-    </Modal>
+    <AnimatedModal open={open} onClose={onClose} title="Guía de talles" size="md">
+      {/* Se mantiene montada durante la salida; la key resetea la calculadora al abrir con otro tipo */}
+      <Guia key={`${tipo ?? 'remeras'}-${apertura}`} inicial={tipo} />
+    </AnimatedModal>
   );
 }

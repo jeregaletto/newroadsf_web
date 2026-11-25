@@ -1,4 +1,6 @@
 import { Link } from 'react-router-dom';
+import { m } from 'motion/react';
+import { revelar, VIEWPORT } from '../lib/motion';
 import { LayoutDashboard } from 'lucide-react';
 import { Logo, InstagramIcon, WhatsAppIcon } from './BrandIcons';
 import { STORE } from '../lib/constants';
@@ -6,7 +8,7 @@ import { waLink } from '../lib/whatsapp';
 
 export default function Footer() {
   return (
-    <footer className="mx-auto max-w-7xl px-4 pb-28 pt-12 sm:px-6 md:pb-12">
+    <m.footer className="mx-auto max-w-7xl px-4 pb-28 pt-12 sm:px-6 md:pb-12" variants={revelar} initial="oculto" whileInView="visible" viewport={VIEWPORT}>
       <div className="flex flex-col gap-8 md:flex-row md:items-end md:justify-between">
         <div>
           <Logo />
@@ -39,6 +41,6 @@ export default function Footer() {
           <LayoutDashboard className="size-3.5" /> Panel del local (demo)
         </Link>
       </div>
-    </footer>
+    </m.footer>
   );
 }

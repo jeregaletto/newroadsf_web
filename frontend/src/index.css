@@ -17,6 +17,8 @@
 
 
   --animate-marquee: marquee 28s linear infinite;
+  /* fade-in, slide-up, slide-left y toast los usa el panel admin (Modal.jsx en CSS y su aviso).
+     La tienda anima con Motion: ver src/lib/motion.js */
   --animate-fade-in: fade-in 0.2s ease-out;
   --animate-slide-up: slide-up 0.28s cubic-bezier(0.2, 0.8, 0.2, 1);
   --animate-slide-left: slide-left 0.28s cubic-bezier(0.2, 0.8, 0.2, 1);
@@ -63,8 +65,9 @@
 }
 
 @layer base {
+  /* Sin scroll-behavior: smooth: en la tienda el scroll suave lo hace Lenis (y se pelearían).
+     Con "reducir movimiento" Lenis no se monta y las anclas saltan directo. */
   html {
-    scroll-behavior: smooth;
     -webkit-tap-highlight-color: transparent;
     color-scheme: dark;
   }
@@ -74,6 +77,10 @@
   /* Deja lugar al header sticky al navegar a anclas */
   section[id] {
     scroll-margin-top: 5rem;
+  }
+  /* Al llegar por un ancla el foco pasa a la sección (para que el Tab siga desde ahí), sin dibujar el anillo */
+  section[id][tabindex="-1"]:focus {
+    outline: none;
   }
   :focus-visible {
     outline: 2px solid var(--color-acid);
@@ -86,6 +93,15 @@
       scroll-behavior: auto !important;
     }
   }
+}
+
+/* El CSS de Lenis le pone overscroll-behavior: contain (en los dos ejes) a todo [data-lenis-prevent-horizontal].
+   En contenedores con scroll solo horizontal (chips de filtros, tabla de talles) eso corta el scroll vertical
+   cuando es nativo: dentro de los modales (Lenis frenado) y con el dedo en mobile. Se contiene solo el eje X.
+   Va FUERA de @layer: el CSS de Lenis no tiene capa, y el CSS sin capa le gana a cualquier capa.
+   Entre los dos sin capa, html.lenis (más específico) gana. */
+html.lenis [data-lenis-prevent-horizontal] {
+  overscroll-behavior-y: auto;
 }
 
 @utility no-scrollbar {

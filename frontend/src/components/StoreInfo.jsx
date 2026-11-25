@@ -1,4 +1,6 @@
+import { m } from 'motion/react';
 import { Clock, MapPin, Navigation } from 'lucide-react';
+import { revelar, VIEWPORT } from '../lib/motion';
 import { WhatsAppIcon } from './BrandIcons';
 import { STORE, MAPS_EMBED_URL, MAPS_DIRECTIONS_URL } from '../lib/constants';
 import { waLink, mensajeConsulta } from '../lib/whatsapp';
@@ -23,7 +25,9 @@ export default function StoreInfo() {
   const abierto = estadoActual();
 
   return (
+    // La sección (destino del ancla #local) no se mueve; se revela su contenido
     <section id="local" className="border-y border-line bg-ink-2">
+      <m.div variants={revelar} initial="oculto" whileInView="visible" viewport={VIEWPORT}>
       <div className="mx-auto grid max-w-7xl gap-8 px-4 py-12 sm:px-6 md:grid-cols-5 md:py-16">
         <div className="md:col-span-2">
           <p className="text-xs font-bold uppercase tracking-[0.25em] text-acid">Visitanos</p>
@@ -110,6 +114,7 @@ export default function StoreInfo() {
           />
         </div>
       </div>
+      </m.div>
     </section>
   );
 }

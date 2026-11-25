@@ -1,12 +1,14 @@
 import { useState } from 'react';
+import { m } from 'motion/react';
 import { ArrowLeft, Minus, Plus, Trash2, ShoppingBag, Truck, Store, CircleCheck, CircleAlert, LoaderCircle } from 'lucide-react';
-import Modal from './Modal';
+import AnimatedModal from './AnimatedModal';
 import { WhatsAppIcon } from './BrandIcons';
 import { useCart } from '../context/CartContext';
 import { api } from '../lib/api';
 import { formatARS, imgUrl, onImgError } from '../lib/format';
 import { MEDIOS_PAGO, TIPOS_ENTREGA, talleLabel } from '../lib/constants';
 import { waLink, mensajePedido } from '../lib/whatsapp';
+import { TAP } from '../lib/motion';
 
 const DATOS_KEY = 'newroad-cliente';
 
@@ -41,7 +43,7 @@ function PasoCarrito({ onCheckout }) {
 
   return (
     <>
-      <ul className="flex-1 divide-y divide-line overflow-y-auto overscroll-contain px-5">
+      <ul className="flex-1 divide-y divide-line overflow-y-auto overscroll-contain px-5" data-lenis-prevent>
         {items.map((it) => (
           <li key={it.key} className="flex gap-3 py-4">
             <img src={imgUrl(it.imagen_url, 200)} onError={onImgError} alt="" className="size-20 shrink-0 rounded-xl object-cover" loading="lazy" />
@@ -101,13 +103,14 @@ function PasoCarrito({ onCheckout }) {
           </span>
           <span className="font-display text-3xl text-white">{formatARS(total)}</span>
         </div>
-        <button
+        <m.button
           type="button"
           onClick={onCheckout}
-          className="mt-4 flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-acid text-base font-extrabold uppercase tracking-wide text-ink transition hover:bg-acid-deep active:scale-[0.98]"
+          whileTap={TAP}
+          className="mt-4 flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-acid text-base font-extrabold uppercase tracking-wide text-ink transition-colors hover:bg-acid-deep"
         >
           Finalizar pedido
-        </button>
+        </m.button>
       </div>
     </>
   );
@@ -197,7 +200,7 @@ function PasoCheckout({ onBack, onDone }) {
 
   return (
     <form onSubmit={submit} noValidate className="flex min-h-0 flex-1 flex-col">
-      <div className="flex-1 space-y-5 overflow-y-auto overscroll-contain p-5">
+      <div className="flex-1 space-y-5 overflow-y-auto overscroll-contain p-5" data-lenis-prevent>
         <button type="button" onClick={onBack} className="-ml-1 flex items-center gap-1 text-sm font-semibold text-zinc-400 hover:text-white">
           <ArrowLeft className="size-4" /> Volver al carrito
         </button>
@@ -287,14 +290,15 @@ function PasoCheckout({ onBack, onDone }) {
           <span className="text-sm text-zinc-400">Total a pagar</span>
           <span className="font-display text-3xl text-white">{formatARS(total)}</span>
         </div>
-        <button
+        <m.button
           type="submit"
           disabled={enviando}
-          className="flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-wa text-base font-extrabold text-ink transition hover:brightness-110 active:scale-[0.98] disabled:opacity-60"
+          whileTap={enviando ? undefined : TAP}
+          className="flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-wa text-base font-extrabold text-ink transition hover:brightness-110 disabled:opacity-60"
         >
           {enviando ? <LoaderCircle className="size-5 animate-spin" /> : <WhatsAppIcon className="size-5" />}
           {enviando ? 'Guardando pedido…' : 'Confirmar y enviar por WhatsApp'}
-        </button>
+        </m.button>
         <p className="mt-2 text-center text-[0.7rem] text-zinc-500">Coordinamos el pago y la entrega por WhatsApp</p>
       </div>
     </form>
@@ -332,9 +336,11 @@ export default function CartDrawer({ onPedidoCreado }) {
   const [paso, setPaso] = useState('carrito');
   const [resultado, setResultado] = useState(null);
 
-  const cerrar = () => {
-    close();
-    // La próxima vez que se abra, arranca desde el listado
+  const cerrar = () => close();
+
+  // La próxima vez que se abra arranca desde el listado. Se resetea al terminar la animación
+  // de salida, así el contenido no cambia mientras el drawer se va.
+  const alTerminarSalida = () => {
     setPaso('carrito');
     setResultado(null);
   };
@@ -342,7 +348,7 @@ export default function CartDrawer({ onPedidoCreado }) {
   const titulos = { carrito: 'Tu carrito', checkout: 'Finalizar pedido', listo: 'Pedido enviado' };
 
   return (
-    <Modal open={isOpen} onClose={cerrar} title={titulos[paso]} variant="drawer">
+    <AnimatedModal open={isOpen} onClose={cerrar} title={titulos[paso]} variant="drawer" onExitComplete={alTerminarSalida}>
       {paso === 'carrito' && <PasoCarrito onCheckout={() => setPaso('checkout')} />}
       {paso === 'checkout' && (
         <PasoCheckout
@@ -355,6 +361,6 @@ export default function CartDrawer({ onPedidoCreado }) {
         />
       )}
       {paso === 'listo' && resultado && <PasoListo pedido={resultado.pedido} url={resultado.url} onClose={cerrar} />}
-    </Modal>
+    </AnimatedModal>
   );
 }

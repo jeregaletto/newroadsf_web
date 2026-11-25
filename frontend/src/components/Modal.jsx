@@ -1,62 +1,17 @@
-import { useEffect, useId, useRef } from 'react';
+import { useId, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
-
-// Pila de modales abiertos: Esc / Tab solo afectan al de arriba
-const stack = [];
+import { useModalA11y } from '../lib/useModalA11y';
 
 /**
- * Modal accesible. En mobile se muestra como bottom-sheet,
+ * Modal accesible con animaciones CSS. En mobile se muestra como bottom-sheet,
  * en desktop centrado. Cierra con Esc, click afuera o botón.
+ * Lo usa el panel admin; la tienda usa AnimatedModal (misma accesibilidad, animado con Motion).
  */
 export default function Modal({ open, onClose, title, children, size = 'md', hideTitle = false, variant = 'modal', headerExtra = null }) {
   const titleId = useId();
   const panelRef = useRef(null);
-  const onCloseRef = useRef(onClose);
-  onCloseRef.current = onClose;
-
-  useEffect(() => {
-    if (!open) return;
-    const prevFocus = document.activeElement;
-    const prevOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-
-    const token = {};
-    stack.push(token);
-
-    const onKey = (e) => {
-      if (stack.at(-1) !== token) return;
-      if (e.key === 'Escape') {
-        e.stopPropagation();
-        onCloseRef.current();
-      }
-      // Mantiene el foco dentro del modal
-      if (e.key === 'Tab' && panelRef.current) {
-        const f = panelRef.current.querySelectorAll(
-          'button:not([disabled]), a[href], input:not([disabled]), select, textarea, [tabindex]:not([tabindex="-1"])',
-        );
-        if (!f.length) return;
-        const first = f[0];
-        const last = f[f.length - 1];
-        if (e.shiftKey && document.activeElement === first) {
-          e.preventDefault();
-          last.focus();
-        } else if (!e.shiftKey && document.activeElement === last) {
-          e.preventDefault();
-          first.focus();
-        }
-      }
-    };
-    document.addEventListener('keydown', onKey);
-    panelRef.current?.focus();
-
-    return () => {
-      stack.splice(stack.indexOf(token), 1);
-      document.removeEventListener('keydown', onKey);
-      document.body.style.overflow = prevOverflow;
-      prevFocus?.focus?.();
-    };
-  }, [open]);
+  useModalA11y(open, onClose, panelRef);
 
   if (!open) return null;
 
@@ -97,7 +52,9 @@ export default function Modal({ open, onClose, title, children, size = 'md', hid
         {isDrawer ? (
           <div className="flex min-h-0 flex-1 flex-col">{children}</div>
         ) : (
-          <div className="overflow-y-auto overscroll-contain">{children}</div>
+          <div className="overflow-y-auto overscroll-contain" data-lenis-prevent>
+            {children}
+          </div>
         )}
       </div>
     </div>,

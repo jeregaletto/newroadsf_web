@@ -1,8 +1,10 @@
 import { useState } from 'react';
+import { m } from 'motion/react';
 import { Plus, Check } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { formatARS, imgUrl, onImgError } from '../lib/format';
 import SizePicker from './SizePicker';
+import { TAP } from '../lib/motion';
 
 export function stockBadge(producto) {
   if (producto.stock_total === 0) return { label: 'Agotado', cls: 'bg-zinc-800 text-zinc-300' };
@@ -84,11 +86,12 @@ export default function ProductCard({ producto, onOpen, talleFiltro }) {
             }}
           />
           {aviso && <p className="text-xs font-medium text-orange-400">Elegí un talle primero</p>}
-          <button
+          <m.button
             type="button"
             onClick={agregar}
             disabled={agotado}
-            className={`flex h-11 w-full items-center justify-center gap-1.5 rounded-xl text-sm font-extrabold uppercase tracking-wide transition active:scale-[0.98] disabled:cursor-not-allowed disabled:bg-ink-3 disabled:text-zinc-600 ${
+            whileTap={agotado ? undefined : TAP}
+            className={`flex h-11 w-full items-center justify-center gap-1.5 rounded-xl text-sm font-extrabold uppercase tracking-wide transition-colors disabled:cursor-not-allowed disabled:bg-ink-3 disabled:text-zinc-600 ${
               ok ? 'bg-white text-ink' : 'bg-acid text-ink hover:bg-acid-deep'
             }`}
           >
@@ -105,7 +108,7 @@ export default function ProductCard({ producto, onOpen, talleFiltro }) {
                 <span className="hidden sm:inline">Agregar al carrito</span>
               </>
             )}
-          </button>
+          </m.button>
         </div>
       </div>
     </article>

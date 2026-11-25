@@ -1,8 +1,12 @@
+import { m } from 'motion/react';
+import { revelar, VIEWPORT } from '../lib/motion';
 import { Truck, CreditCard, Store, MessageCircle, Banknote, ArrowLeftRight } from 'lucide-react';
 
 export default function TrustBlock() {
   return (
+    // La sección (destino del ancla #envios) no se mueve, así Lenis calcula bien el destino; se revela su contenido
     <section id="envios" className="mx-auto max-w-7xl px-4 py-12 sm:px-6 md:py-16">
+      <m.div variants={revelar} initial="oculto" whileInView="visible" viewport={VIEWPORT}>
       <div className="grid gap-3 md:grid-cols-2">
         {/* Bloques destacados */}
         <div className="relative overflow-hidden rounded-3xl bg-acid p-6 text-ink sm:p-8">
@@ -50,6 +54,7 @@ export default function TrustBlock() {
           </div>
         </div>
       </div>
+      </m.div>
     </section>
   );
 }

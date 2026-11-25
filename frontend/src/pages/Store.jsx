@@ -1,5 +1,8 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { AnimatePresence, m, useReducedMotion } from 'motion/react';
 import { RefreshCw, SearchX } from 'lucide-react';
+import StoreProviders from '../components/StoreProviders';
+import AnimatedModal from '../components/AnimatedModal';
 import Header from '../components/Header';
 import Marquee from '../components/Marquee';
 import Hero from '../components/Hero';
@@ -14,6 +17,11 @@ import Footer from '../components/Footer';
 import FloatingActions from '../components/FloatingActions';
 import ChatAssistant from '../components/ChatAssistant';
 import { api } from '../lib/api';
+import { VIEWPORT, cardFiltro, revelar } from '../lib/motion';
+import { useFlip } from '../lib/useFlip';
+
+// Cards del grid: reveal al entrar al viewport y salida corta al filtrar
+const variantesCard = { ...revelar, salida: cardFiltro.salida };
 
 const normalizar = (s) =>
   s
@@ -90,8 +98,13 @@ export default function Store() {
 
   const abrirGuia = (tipo) => setGuia({ open: true, tipo: tipo ?? 'remeras' });
 
+  // Reacomodo animado del grid al filtrar (FLIP: solo transform, sin el paquete de layout de Motion)
+  const gridRef = useRef(null);
+  const reducir = useReducedMotion();
+  useFlip(gridRef, `${estado}|${filtrados.map((p) => p.id).join(',')}`, { reducir });
+
   return (
-    <>
+    <StoreProviders>
       <Marquee />
       <Header onOpenSizeGuide={() => abrirGuia()} />
 
@@ -145,16 +158,35 @@ export default function Store() {
             )}
 
             {estado === 'ok' && filtrados.length > 0 && (
-              <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 lg:grid-cols-4">
-                {filtrados.map((p) => (
-                  <ProductCard
-                    // El key incluye el filtro de talle para preseleccionarlo al filtrar
-                    key={`${p.id}-${filtros.talle}`}
-                    producto={p}
-                    talleFiltro={filtros.talle}
-                    onOpen={setDetalle}
-                  />
-                ))}
+              // relative: lo necesita AnimatePresence en modo popLayout para sacar del flujo las cards que se van
+              <div ref={gridRef} className="relative grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 lg:grid-cols-4">
+                <AnimatePresence mode="popLayout">
+                  {filtrados.map((p, i) => (
+                    // Externo: lo mueve el FLIP al reacomodar. Interno: reveal y salida con Motion.
+                    // Separados para que las dos animaciones de transform no se pisen.
+                    <div key={p.id} data-flip={p.id} className="grid">
+                      <m.div
+                        className="grid"
+                        variants={variantesCard}
+                        // Stagger corto por columna (como mucho 4 por fila)
+                        custom={(i % 4) * 0.06}
+                        initial="oculto"
+                        whileInView="visible"
+                        viewport={VIEWPORT}
+                        exit="salida"
+                      >
+                        <ProductCard
+                          // La key interna resetea el talle elegido al cambiar el filtro de talle
+                          // (la externa, el id, se mantiene para que la card se reacomode en vez de recrearse)
+                          key={filtros.talle}
+                          producto={p}
+                          talleFiltro={filtros.talle}
+                          onOpen={setDetalle}
+                        />
+                      </m.div>
+                    </div>
+                  ))}
+                </AnimatePresence>
               </div>
             )}
           </div>
@@ -171,6 +203,7 @@ export default function Store() {
       <SizeGuideModal open={guia.open} tipo={guia.tipo} onClose={() => setGuia((g) => ({ ...g, open: false }))} />
       {chatDisponible && (
         <ChatAssistant
+          Contenedor={AnimatedModal}
           open={chatAbierto}
           onClose={() => setChatAbierto(false)}
           productos={productos}
@@ -178,6 +211,6 @@ export default function Store() {
         />
       )}
       <CartDrawer onPedidoCreado={() => cargar({ silencioso: true })} />
-    </>
+    </StoreProviders>
   );
 }

@@ -1,6 +1,7 @@
 import { useState } from 'react';
+import { m } from 'motion/react';
 import { Minus, Plus, Ruler, Truck, ShoppingBag } from 'lucide-react';
-import Modal from './Modal';
+import AnimatedModal from './AnimatedModal';
 import SizePicker from './SizePicker';
 import { WhatsAppIcon } from './BrandIcons';
 import { useCart } from '../context/CartContext';
@@ -8,6 +9,7 @@ import { formatARS, imgUrl, onImgError } from '../lib/format';
 import { CATEGORIA_A_GUIA } from '../lib/constants';
 import { waLink, mensajeConsulta } from '../lib/whatsapp';
 import { talleInicial } from './ProductCard';
+import { TAP } from '../lib/motion';
 
 function Detalle({ producto, onClose, onOpenSizeGuide }) {
   const { addItem, items, open: openCart } = useCart();
@@ -101,15 +103,16 @@ function Detalle({ producto, onClose, onOpenSizeGuide }) {
                 <Plus className="size-4" />
               </button>
             </div>
-            <button
+            <m.button
               type="button"
               onClick={agregar}
               disabled={talle && maxAgregable === 0}
-              className="flex h-12 flex-1 items-center justify-center gap-2 rounded-xl bg-acid text-sm font-extrabold uppercase tracking-wide text-ink transition hover:bg-acid-deep active:scale-[0.98] disabled:bg-ink-3 disabled:text-zinc-600"
+              whileTap={TAP}
+              className="flex h-12 flex-1 items-center justify-center gap-2 rounded-xl bg-acid text-sm font-extrabold uppercase tracking-wide text-ink transition-colors hover:bg-acid-deep disabled:bg-ink-3 disabled:text-zinc-600"
             >
               <ShoppingBag className="size-4" strokeWidth={2.5} />
               {talle && maxAgregable === 0 ? 'Sin más stock' : 'Agregar al carrito'}
-            </button>
+            </m.button>
           </div>
         )}
 
@@ -132,10 +135,23 @@ function Detalle({ producto, onClose, onOpenSizeGuide }) {
 }
 
 export default function ProductModal({ producto, onClose, onOpenSizeGuide }) {
+  // Durante la animación de salida "producto" ya es null: se sigue mostrando el último
+  // para que el modal no se vacíe mientras se va
+  const [ultimo, setUltimo] = useState(producto);
+  if (producto && producto !== ultimo) setUltimo(producto);
+  const visible = producto ?? ultimo;
+
   return (
-    <Modal open={Boolean(producto)} onClose={onClose} title={producto?.nombre ?? ''} hideTitle size="lg">
+    <AnimatedModal
+      open={Boolean(producto)}
+      onClose={onClose}
+      title={visible?.nombre ?? ''}
+      hideTitle
+      size="lg"
+      onExitComplete={() => setUltimo(null)}
+    >
       {/* key: resetea talle/cantidad al cambiar de producto */}
-      {producto && <Detalle key={producto.id} producto={producto} onClose={onClose} onOpenSizeGuide={onOpenSizeGuide} />}
-    </Modal>
+      {visible && <Detalle key={visible.id} producto={visible} onClose={onClose} onOpenSizeGuide={onOpenSizeGuide} />}
+    </AnimatedModal>
   );
 }

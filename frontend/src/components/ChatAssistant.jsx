@@ -98,6 +98,8 @@ function ProductosMencionados({ ids, texto, productos, onOpenProduct }) {
  * Chat con IA reutilizable (tienda y panel admin).
  * - enviarMensajes(historial) => { respuesta, productoIds? }
  * - productos + onOpenProduct: opcionales; si están, los productos nombrados se muestran como tarjetas.
+ * - Contenedor: el modal que lo envuelve. Por defecto Modal (CSS, el del panel admin);
+ *   la tienda le pasa AnimatedModal, así el panel no carga Motion ni Lenis.
  */
 export default function ChatAssistant({
   open,
@@ -111,6 +113,7 @@ export default function ChatAssistant({
   pie = 'Asistente con IA · precios y stock consultados en tiempo real',
   placeholder = 'Escribí tu consulta…',
   mostrarWhatsAppEnError = true,
+  Contenedor = Modal,
 }) {
   const bienvenida = { rol: 'model', texto: textoBienvenida, local: true };
   const [mensajes, setMensajes] = useState(() => cargarHistorial(storageKey, bienvenida));
@@ -123,9 +126,11 @@ export default function ChatAssistant({
     sessionStorage.setItem(storageKey, JSON.stringify(mensajes));
   }, [mensajes, storageKey]);
 
-  // Auto-scroll al último mensaje
+  // Auto-scroll al último mensaje (instantáneo si el usuario pidió reducir movimiento)
   useEffect(() => {
-    if (open) listaRef.current?.scrollTo({ top: listaRef.current.scrollHeight, behavior: 'smooth' });
+    if (!open) return;
+    const reducir = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    listaRef.current?.scrollTo({ top: listaRef.current.scrollHeight, behavior: reducir ? 'auto' : 'smooth' });
   }, [mensajes, pensando, open]);
 
   useEffect(() => {
@@ -157,7 +162,7 @@ export default function ChatAssistant({
   const soloBienvenida = mensajes.length === 1;
 
   return (
-    <Modal
+    <Contenedor
       open={open}
       onClose={onClose}
       variant="drawer"
@@ -176,7 +181,7 @@ export default function ChatAssistant({
         )
       }
     >
-      <div ref={listaRef} className="flex-1 space-y-4 overflow-y-auto overscroll-contain p-4" aria-live="polite">
+      <div ref={listaRef} className="flex-1 space-y-4 overflow-y-auto overscroll-contain p-4" aria-live="polite" data-lenis-prevent>
         {mensajes.map((m, i) =>
           m.rol === 'user' ? (
             <div key={i} className="flex justify-end">
@@ -269,6 +274,6 @@ export default function ChatAssistant({
           {pie}
         </p>
       </form>
-    </Modal>
+    </Contenedor>
   );
 }

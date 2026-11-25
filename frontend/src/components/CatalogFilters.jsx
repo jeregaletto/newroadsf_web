@@ -50,8 +50,9 @@ export default function CatalogFilters({ filtros, setFiltros, total }) {
         )}
       </label>
 
-      {/* Categorías: scroll horizontal en mobile */}
-      <div className="-mx-4 flex gap-2 overflow-x-auto px-4 no-scrollbar sm:mx-0 sm:flex-wrap sm:px-0" role="group" aria-label="Categorías">
+      {/* Categorías: scroll horizontal en mobile. data-lenis-prevent-horizontal (no el genérico): Lenis no se mete
+          en gestos horizontales, pero la rueda vertical sigue moviendo la página aunque el cursor esté encima */}
+      <div className="-mx-4 flex gap-2 overflow-x-auto px-4 no-scrollbar sm:mx-0 sm:flex-wrap sm:px-0" role="group" aria-label="Categorías" data-lenis-prevent-horizontal>
         <Chip active={!categoria} onClick={() => set({ categoria: '' })}>
           Todo
         </Chip>
@@ -64,7 +65,7 @@ export default function CatalogFilters({ filtros, setFiltros, total }) {
 
       <div className="flex items-center gap-2">
         <span className="shrink-0 text-xs font-semibold uppercase tracking-wider text-zinc-500">Talle</span>
-        <div className="-mr-4 flex gap-2 overflow-x-auto pr-4 no-scrollbar sm:mr-0 sm:pr-0" role="group" aria-label="Filtrar por talle con stock">
+        <div className="-mr-4 flex gap-2 overflow-x-auto pr-4 no-scrollbar sm:mr-0 sm:pr-0" role="group" aria-label="Filtrar por talle con stock" data-lenis-prevent-horizontal>
           {TALLES_FILTRO.map((t) => (
             <Chip key={t} size="sm" active={talle === t} onClick={() => set({ talle: talle === t ? '' : t })}>
               {t}

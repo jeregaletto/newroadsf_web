@@ -12,6 +12,23 @@
     <link rel="preconnect" href="https://images.unsplash.com" />
     <link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
     <title>New Road Indumentaria · Ropa urbana en Santa Fe</title>
+    <script>
+      // Tienda: precarga la imagen del hero (el LCP) en paralelo con el JS, sin esperar al render.
+      // En /admin no se usa, así que no se descarga. Las URLs deben coincidir con src/components/Hero.jsx.
+      // Sin fetchpriority="high" acá a propósito: medido con red lenta, con prioridad alta le quitaba
+      // ancho de banda al JS y el primer texto tardaba ~1,5 s más (el <img> sí la tiene al aparecer).
+      if (!location.pathname.startsWith('/admin')) {
+        var base = 'https://images.unsplash.com/photo-1523398002811-999ca8dec234?auto=format&fit=crop&q=75';
+        [['(min-width: 768px)', 1800], ['(max-width: 767.98px)', 900]].forEach(function (p) {
+          var l = document.createElement('link');
+          l.rel = 'preload';
+          l.as = 'image';
+          l.media = p[0];
+          l.href = base + '&w=' + p[1];
+          document.head.appendChild(l);
+        });
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>

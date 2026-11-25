@@ -1,10 +1,17 @@
 import { lazy, Suspense } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { CartProvider } from './context/CartContext';
-import Store from './pages/Store';
 
-// El panel se carga aparte: los clientes de la tienda no descargan ese código
+// Tienda y panel se cargan por separado: el panel no descarga la tienda (ni Motion ni Lenis)
+// y los clientes de la tienda no descargan el panel.
+const cargarStore = () => import('./pages/Store');
+// La tienda empieza a bajarse apenas arranca la app (salvo en /admin), sin esperar al primer render
+if (!window.location.pathname.startsWith('/admin')) cargarStore();
+
+const Store = lazy(cargarStore);
 const Admin = lazy(() => import('./pages/Admin'));
+
+const Cargando = () => <div className="min-h-dvh bg-ink" />;
 
 export default function App() {
   return (
@@ -13,14 +20,16 @@ export default function App() {
         path="/"
         element={
           <CartProvider>
-            <Store />
+            <Suspense fallback={<Cargando />}>
+              <Store />
+            </Suspense>
           </CartProvider>
         }
       />
       <Route
         path="/admin"
         element={
-          <Suspense fallback={<div className="min-h-dvh bg-ink" />}>
+          <Suspense fallback={<Cargando />}>
             <Admin />
           </Suspense>
         }
